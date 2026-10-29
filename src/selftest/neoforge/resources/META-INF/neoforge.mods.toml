@@ -1,0 +1,11 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="MIT"
+
+[[mods]]
+modId="rewind_selftest"
+version="1.0.0"
+displayName="Rewind self test"
+
+[[mixins]]
+config="rewind_selftest.mixins.json"

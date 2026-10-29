@@ -1,0 +1,23 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "dev.rewind.mixin",
+	"compatibilityLevel": "JAVA_${java_version}",
+	"mixins": [
+		"BlockEntityMixin",
+		"EntityCallbacksMixin",
+		"EntityMixin",
+		"ExplosionMixin",
+		"LevelChunkMixin",
+		"LivingEntityMixin",
+		"MinecraftServerMixin",
+		"ServerLevelMixin",
+		"ServerPlayerMixin"
+	],
+	"client": [
+		"DeathScreenMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

@@ -1,0 +1,20 @@
+{
+	"schemaVersion": 1,
+	"id": "rewind-selftest",
+	"version": "1.0.0",
+	"name": "Rewind self test",
+	"description": "Development-only in-world checks for Rewind. Not shipped.",
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"dev.rewind.selftest.fabric.RewindSelfTestFabric"
+		]
+	},
+	"depends": {
+		"rewind": "*"
+	},
+	"mixins": [
+		"rewind_selftest.mixins.json"
+	]
+}

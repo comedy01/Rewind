@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "rewind",
+	"version": "${version}",
+	"name": "Rewind",
+	"description": "Scrub your singleplayer world back to any moment of this session with a timeline slider. Blocks, chests, mobs, items, your inventory, time and weather all go back. Preview freely, then rewind or cancel.",
+	"icon": "assets/rewind/icon.png",
+	"authors": [
+		"comedy01"
+	],
+	"license": "MIT",
+	"contact": {
+		"homepage": "https://github.com/comedy01/Rewind",
+		"sources": "https://github.com/comedy01/Rewind",
+		"issues": "https://github.com/comedy01/Rewind/issues"
+	},
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"dev.rewind.fabric.RewindFabric"
+		],
+		"modmenu": [
+			"dev.rewind.fabric.RewindModMenu"
+		]
+	},
+	"mixins": [
+		"rewind.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"fabric-api": "*",
+		"minecraft": "${range}",
+		"java": ">=${java_version}"
+	},
+	"suggests": {
+		"modmenu": "*"
+	}
+}

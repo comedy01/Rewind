@@ -1,0 +1,234 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}" apply false
+	id 'net.neoforged.moddev' version "${moddev_version}" apply false
+	id 'net.neoforged.moddev.legacyforge' version "${moddev_version}" apply false
+}
+
+def loader = project.property("loader")
+def minecraftVersion = project.minecraft_version
+def fabric = loader == "fabric"
+def neoforge = loader == "neoforge"
+def forge = loader == "forge"
+def remap = fabric && minecraftVersion.startsWith("1.")
+
+def versionProps = new Properties()
+def propsFile = fabric ? file("versions/${minecraftVersion}.properties") : file("versions/${loader}/${minecraftVersion}.properties")
+propsFile.withInputStream { versionProps.load(it) }
+
+def gameVersion = versionProps.getProperty("minecraft", minecraftVersion)
+def packs = versionProps.getProperty("packs").split(",")
+def label = versionProps.getProperty("label")
+def javaVersion = versionProps.getProperty("java").toInteger()
+def selftestArgs = ["--width", "1920", "--height", "1080", "--username", "Rewind"]
+def selftestJvm = ["-Xmx3G"] + project.properties.findAll { it.key.startsWith("rw.") }.collect { "-Drewind.${it.key.substring(3)}=${it.value}" }
+
+def expansions = [java_version: javaVersion]
+versionProps.stringPropertyNames().each { expansions[it] = versionProps.getProperty(it) }
+
+if (neoforge) {
+	apply plugin: 'net.neoforged.moddev'
+} else if (forge) {
+	apply plugin: 'net.neoforged.moddev.legacyforge'
+} else {
+	apply plugin: remap ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-loom'
+}
+
+version = "${project.mod_version}+mc${label}"
+expansions.version = project.version
+group = project.maven_group
+
+base {
+	archivesName = fabric ? project.archives_base_name : "${project.archives_base_name}-${loader}"
+}
+
+sourceSets.main.java.srcDir "src/loader/${loader}/java"
+sourceSets.main.resources.srcDir "src/loader/${loader}/resources"
+packs.each { pack ->
+	sourceSets.main.java.srcDir "src/compat/${pack}/java"
+}
+
+sourceSets {
+	selftest {
+		java.srcDir "src/selftest/${loader}/java"
+		resources.srcDir "src/selftest/${loader}/resources"
+		packs.each { pack ->
+			java.srcDir "src/compat/${pack}/selftest/java"
+		}
+	}
+}
+
+repositories {
+	maven {
+		name = "Terraformers"
+		url = "https://maven.terraformersmc.com/"
+	}
+}
+
+dependencies {
+	if (neoforge || forge) {
+		testImplementation "com.google.code.gson:gson:2.11.0"
+		testImplementation "org.slf4j:slf4j-api:2.0.16"
+	}
+	if (forge) {
+		annotationProcessor "org.spongepowered:mixin:0.8.5:processor"
+		compileOnly "io.github.llamalad7:mixinextras-common:${versionProps.getProperty('mixinextras_version')}"
+		annotationProcessor "io.github.llamalad7:mixinextras-common:${versionProps.getProperty('mixinextras_version')}"
+		implementation "io.github.llamalad7:mixinextras-forge:${versionProps.getProperty('mixinextras_version')}"
+		jarJar "io.github.llamalad7:mixinextras-forge:${versionProps.getProperty('mixinextras_version')}"
+	} else if (remap) {
+		minecraft "com.mojang:minecraft:${gameVersion}"
+		mappings loom.officialMojangMappings()
+		modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+		modImplementation "net.fabricmc.fabric-api:fabric-api:${versionProps.getProperty('fabric_api_version')}"
+		modCompileOnly("com.terraformersmc:modmenu:${versionProps.getProperty('modmenu_version')}") {
+			transitive = false
+		}
+	} else if (fabric) {
+		minecraft "com.mojang:minecraft:${gameVersion}"
+		implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+		implementation "net.fabricmc.fabric-api:fabric-api:${versionProps.getProperty('fabric_api_version')}"
+		compileOnly("com.terraformersmc:modmenu:${versionProps.getProperty('modmenu_version')}") {
+			transitive = false
+		}
+	}
+
+	testImplementation "org.junit.jupiter:junit-jupiter:5.11.4"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+if (neoforge) {
+	dependencies {
+		selftestImplementation sourceSets.main.output
+	}
+
+	neoForge {
+		version = versionProps.getProperty("neoforge_version")
+		addModdingDependenciesTo(sourceSets.selftest)
+		mods {
+			rewind {
+				sourceSet sourceSets.main
+			}
+			rewind_selftest {
+				sourceSet sourceSets.selftest
+			}
+		}
+		runs {
+			client {
+				client()
+				loadedMods = [mods.rewind]
+			}
+			selftest {
+				client()
+				sourceSet = sourceSets.selftest
+				loadedMods = [mods.rewind, mods.rewind_selftest]
+				programArguments.addAll(selftestArgs)
+				jvmArguments.addAll(selftestJvm)
+			}
+		}
+	}
+} else if (forge) {
+	dependencies {
+		selftestImplementation sourceSets.main.output
+		selftestRuntimeOnly "io.github.llamalad7:mixinextras-forge:${versionProps.getProperty('mixinextras_version')}"
+	}
+
+	legacyForge {
+		version = versionProps.getProperty("forge_version")
+		addModdingDependenciesTo(sourceSets.selftest)
+		mods {
+			rewind {
+				sourceSet sourceSets.main
+			}
+			rewind_selftest {
+				sourceSet sourceSets.selftest
+			}
+		}
+		runs {
+			client {
+				client()
+				loadedMods = [mods.rewind]
+			}
+			selftest {
+				client()
+				sourceSet = sourceSets.selftest
+				loadedMods = [mods.rewind, mods.rewind_selftest]
+				programArguments.addAll(selftestArgs)
+				programArguments.addAll("--mixin.config", "rewind_selftest.mixins.json")
+				jvmArguments.addAll(selftestJvm)
+			}
+		}
+	}
+
+	mixin {
+		add sourceSets.main, "rewind.refmap.json"
+		config "rewind.mixins.json"
+	}
+
+	jar {
+		manifest.attributes("MixinConfigs": "rewind.mixins.json")
+	}
+} else {
+	sourceSets.selftest.compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+	sourceSets.selftest.runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+
+	loom {
+		mods {
+			rewind {
+				sourceSet sourceSets.main
+			}
+			rewind_selftest {
+				sourceSet sourceSets.selftest
+			}
+		}
+		runs {
+			selftest {
+				client()
+				source sourceSets.selftest
+				programArgs selftestArgs
+				vmArgs selftestJvm
+			}
+		}
+	}
+}
+
+test {
+	useJUnitPlatform()
+}
+
+processResources {
+	inputs.properties(expansions)
+
+	filesMatching(["fabric.mod.json", "rewind.mixins.json", "META-INF/neoforge.mods.toml", "META-INF/mods.toml"]) {
+		expand expansions
+	}
+	if (forge) {
+		filesMatching("rewind.mixins.json") {
+			filter { line -> line.contains('"package"') ? line + '\n\t"refmap": "rewind.refmap.json",' : line }
+		}
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = javaVersion
+	it.options.encoding = 'UTF-8'
+}
+
+java {
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.toVersion(javaVersion)
+	targetCompatibility = JavaVersion.toVersion(javaVersion)
+
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(javaVersion)
+	}
+}
+
+jar {
+	inputs.property "archivesName", project.base.archivesName
+
+	from("LICENSE") {
+		rename { "${it}_${project.base.archivesName.get()}" }
+	}
+}
